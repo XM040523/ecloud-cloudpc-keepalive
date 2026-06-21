@@ -11,6 +11,8 @@
   5. stringToSign = "POST\\n" + quote(apiPath+endpoint) + "\\n" + sha256(querystring)
   6. Signature = HmacSHA1(stringToSign, "BC_SIGNATURE&" + secretKey)
   7. POST https://cloudpc.ecloud.10086.cn/api/cem/gateway/outer/cem-webapi/<endpoint>?<签名查询串>
+
+详细逆向分析见 README.md
 """
 
 import base64
@@ -213,7 +215,12 @@ def load_or_create_device_config() -> dict:
 # ---------------------------------------------------------------------------
 
 class EcloudHTTP:
-    """移动云电脑协议 HTTP 客户端"""
+    """移动云电脑协议 HTTP 客户端
+    
+    用法:
+        http = EcloudHTTP(access_token="your_token")
+        result = http.post("/resource/desktopUptime", {"instanceId": "xxx"})
+    """
 
     def __init__(self, access_token: str = "", rsa_private_key_pem: str = None):
         self.session = requests.Session()
@@ -277,7 +284,12 @@ class EcloudHTTP:
         return self.post("/user/getSysTime", {})
 
     def login_with_password(self, username: str, password: str) -> dict:
-        """密码登录"""
+        """密码登录
+        
+        返回:
+            成功时返回包含 accessTicket 的响应
+            失败时返回错误码和提示信息
+        """
         return self.post("/login/verify", {
             "username": username,
             "password": password,
@@ -286,13 +298,24 @@ class EcloudHTTP:
         })
 
     def verify_access_ticket(self, access_ticket: str) -> dict:
-        """通过 accessTicket 换取 accessToken"""
+        """通过 accessTicket 换取 accessToken
+        
+        Args:
+            access_ticket: 从 login_with_password 返回的 accessTicket
+            
+        Returns:
+            包含 accessToken 的响应
+        """
         return self.post("/login/verifyAccessTicket", {
             "accessTicket": access_ticket,
         })
 
     def get_device_info(self) -> list:
-        """获取桌面列表"""
+        """获取桌面列表
+        
+        Returns:
+            machineList 列表，每项包含 instanceId, machineId, machineName, status 等
+        """
         result = self.post("/user/getDeviceInfo", {
             "accessToken": self.access_token,
             "companyCode": COMPANY_CODE,
@@ -302,13 +325,28 @@ class EcloudHTTP:
         return result.get("body", {}).get("machineList", [])
 
     def desktop_uptime(self, instance_id: str) -> dict:
-        """查询桌面运行时长（保活核心接口）"""
+        """查询桌面运行时长（保活核心接口）
+        
+        Args:
+            instance_id: 桌面实例 ID
+            
+        Returns:
+            包含运行时长信息的响应
+        """
         return self.post("/resource/desktopUptime", {
             "instanceId": instance_id,
         })
 
     def machine_connect(self, instance_id: str, machine_id: str = "") -> dict:
-        """桌面会话登记（保活核心接口）"""
+        """桌面会话登记（保活核心接口）
+        
+        Args:
+            instance_id: 桌面实例 ID
+            machine_id: 机器 ID
+            
+        Returns:
+            登记结果
+        """
         return self.post("/session/machineConnect", {
             "instanceId": instance_id,
             "machineId": machine_id,
